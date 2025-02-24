@@ -2,34 +2,17 @@
 import { useState } from "react";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import argon2 from "argon2";
+import tryArgon from "@/lib/tryArgon";
 
 function BuildPassword() {
-  const [paramHash, setParamHash] = useState("");
+  const [paramHash, setParamHash] = useState("sha256");
   const [pw, setPw] = useState("");
   const [hashed, setHashed] = useState("");
 
-  const hashParams = [
-    "sha256",
-    "bcrypt",
-    "Argon2",
-    "PBKDF2",
-    // {
-    //   type: "sha256",
-    // },
-    // {
-    //   type: "bcrypt",
-    // },
-    // {
-    //   type: "Argon2",
-    //   length: "4",
-    //   chars: "abcdefghijklmnopqrstuvwxyz1234567890",
-    // },
-    // {
-    //   type: "PBKDF2",
-    //   length: "2",
-    //   chars: "abcdefghijklmnopqrstuvwxyz1234567890",
-    // },
-  ];
+  const hashParams = ["sha256", "bcrypt", "Argon2", "PBKDF2"];
   function changePassword() {
     let selectedType = hashParams.find((obj) => obj === paramHash);
 
@@ -40,30 +23,59 @@ function BuildPassword() {
       const saltrounds = 10;
       return setHashed(bcrypt.hashSync(pw, saltrounds));
     }
+
+    async function hashArgon2(pw: string) {
+      const hashing = await tryArgon(pw);
+      setHashed(hashing);
+    }
+
+    if (selectedType === "Argon2") {
+      hashArgon2(pw);
+    }
+
+    if (selectedType === "PBKDF2") {
+      const salt = crypto.randomBytes(16).toString("hex");
+      const iterations = 100000;
+      const keyLength = 64;
+
+      crypto.pbkdf2(
+        pw,
+        salt,
+        iterations,
+        keyLength,
+        "sha256",
+        (err, derivedKey) => {
+          if (err) throw err;
+          setHashed(derivedKey.toString("hex"));
+        }
+      );
+    }
   }
 
   //   const radioLabel =
   //     "flex cursor-pointer h-[30px] bg-white shadow-xl rounded-[50px] checked:bg-black checked:content-[✓]";
-  const radioLabel = "flex cursor-pointer shadow-xl rounded-[50px]";
+  // const radioLabel = `flex cursor-pointer shadow-xl rounded-[50px]`;
+  const radioLabel = `flex cursor-pointer`;
 
   // const activeLabel = "bg-black content-[✓]";
   const radioInput = "flex";
 
   return (
-    <div className="w-[100%]">
-      <form className="flex flex-col">
+    <div className="flex w-full flex-col gap-8">
+      <div className="flex flex-col gap-2">
         <label htmlFor="password">Write your password</label>
-        <input
+        <Input
           type="text"
           name="password"
           id="password"
-          className="border border-white rounded-3xl w-full"
+          required
+          minLength={4}
           value={pw}
           onChange={(e) => setPw(e.target.value)}
         />
-      </form>
-      <form className="flex flex-col">
-        <div className="flex flex-row gap-4">
+      </div>
+      <form className="flex flex-col gap-4">
+        <div className="flex flex-row gap-2">
           <label htmlFor="sha256" className={radioLabel}>
             SHA-256
           </label>
@@ -117,18 +129,14 @@ function BuildPassword() {
             className={radioInput}
           />
         </div>
-        <button type="button" onClick={changePassword}>
+        <Button variant="outline" type="button" onClick={changePassword}>
           Generate hashed password
-        </button>
+        </Button>
       </form>
-      <div>
-        <p>
-          Your hashed password:{" "}
-          <code className="relative rounded bg-muted px-[0.5rem] py-[0.3rem] font-mono text-lg">
-            {hashed}
-          </code>
-        </p>
-      </div>
+      <p className="flex">Your hashed password: </p>
+      <p className="flex bg-muted px-[0.5rem] py-[0.3rem] font-mono text-lg w-full h-fit">
+        {hashed}
+      </p>
     </div>
   );
 }
